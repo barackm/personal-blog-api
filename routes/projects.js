@@ -2,37 +2,59 @@ const express = require('express');
 const router = express.Router();
 const { Project, validate } = require('../models/Project');
 
-router.get('/', (req, res) => {
-  const projects = Project.find().sort({ createdAt: -1 });
-  res.send(projects);
+router.get('/', async (req, res) => {
+  try {
+    const projects = await Project.find().sort({ createdAt: -1 }).exec();
+    res.status(200).json(projects);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
-router.get('/:id', (req, res) => {
-  const { id } = req.params;
-  const project = Project.findById(id);
-  if (!project)
-    return res.status(404).send('The project with the given ID was not found.');
-  res.send(project);
+router.get('/:id', async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id).exec();
+    res.status(200).json(project);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 router.post('/', async (req, res) => {
-  const { error } = validate(req.body);
-  if (error) return res.status(400).send(error.details[0].message);
-
-  const project = new Project({
-    title: req.body.title,
-    description: req.body.description,
-    imageUrl: req.body.imageUrl,
-    sourceCodeUrl: req.body.sourceCodeUrl,
-    liveDemoUrl: req.body.liveDemoUrl,
-    technologies: req.body.technologies,
-    tags: req.body.tags,
-  });
   try {
+    const { error } = validate(req.body);
+    if (error) return res.status(400).json({ error: error.details[0].message });
+
+    const project = new Project(req.body);
     await project.save();
-    res.send(project);
-  } catch (ex) {
-    res.status(500).send('Something failed.');
+
+    res.status(201).json(project);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/:id', async (req, res) => {
+  try {
+    const { error } = validate(req.body);
+    if (error) return res.status(400).json({ error: error.details[0].message });
+
+    const project = await Project.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+    }).exec();
+
+    res.status(200).json(project);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  try {
+    const project = await Project.findByIdAndDelete(req.params.id).exec();
+    res.status(200).json(project);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
