@@ -7,7 +7,13 @@ const roleSchema = new mongoose.Schema({
     required: true,
     minlength: 3,
     maxlength: 50,
-    unique: true,
+    validate: {
+      validator: async function (v) {
+        const role = await Role.findOne({ name: v });
+        return !role;
+      },
+      message: 'Role name already exists',
+    },
   },
   label: {
     type: String,

@@ -1,22 +1,20 @@
 const express = require('express');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const mongoose = require('mongoose');
+const config = require('config');
 
 const app = express();
 app.use(helmet());
 app.use(morgan('tiny'));
 app.use(express.json());
 
-const routes = require('./routes');
-routes(app);
+require('./startup/logging')();
+require('./startup/cors')(app);
+require('./startup/routes')(app);
+require('./startup/db')();
+require('./startup/validation')();
 
-mongoose
-  .connect('mongodb://localhost:27017/myPortfolio')
-  .then(() => console.log('Connected to MongoDB...'))
-  .catch((err) => console.error('Could not connect to MongoDB...'));
-
-const port = process.env.PORT || 5050;
+const port = process.env.PORT || config.get('port');
 
 app.listen(port, () => {
   console.log(`Example app listening at http://localhost:${port}`);

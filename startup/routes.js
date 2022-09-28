@@ -1,6 +1,6 @@
-const projects = require('./projects');
-const home = require('./home');
-const roles = require('./roles');
+const projects = require('../routes/projects');
+const home = require('../routes/home');
+const roles = require('../routes/roles');
 
 const routes = (app) => {
   app.use('/', home);
