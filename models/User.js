@@ -1,4 +1,8 @@
 const mongoose = require('mongoose');
+const config = require('config');
+const jwt = require('jsonwebtoken');
+const Joi = require('joi');
+const { jwtExpirationTime } = require('../utlis/constants');
 
 const userSchema = new mongoose.Schema({
   firstName: {
@@ -27,7 +31,6 @@ const userSchema = new mongoose.Schema({
 
   roles: {
     type: [String],
-    required: true,
     validate: {
       validator: (v) => v.length > 0,
       message: 'At least one role is required',
@@ -43,7 +46,29 @@ const userSchema = new mongoose.Schema({
     minlength: 5,
     maxlength: 1024,
   },
+  status: {
+    type: String,
+    required: true,
+    default: 'active',
+    enum: ['active', 'inactive'],
+  },
 });
+
+userSchema.methods.generateAuthToken = function () {
+  const token = jwt.sign(
+    {
+      _id: this._id,
+      firstName: this.firstName,
+      lastName: this.lastName,
+      email: this.email,
+      roles: this.roles,
+      status: this.status,
+    },
+    config.get('jwtPrivateKey'),
+    { expiresIn: jwtExpirationTime },
+  );
+  return token;
+};
 
 const User = mongoose.model('User', userSchema);
 
@@ -53,7 +78,9 @@ const validateUser = (user) => {
     lastName: Joi.string().min(3).max(50).required(),
     email: Joi.string().min(5).max(255).required().email(),
     password: Joi.string().min(5).max(255).required(),
-    roles: Joi.array().items(Joi.string()).required(),
+    roles: Joi.array().items(Joi.string()),
+    avatarUrl: Joi.string(),
+    status: Joi.string().valid('active', 'inactive'),
   });
 
   return schema.validate(user);

@@ -1,4 +1,7 @@
 {
   "name": "My portfolio API development",
-  "port": 5050
+  "jwtPrivateKey": "defaultPrivateKey",
+  "db": "mongodb://localhost/myPortfolio",
+  "port": "3900",
+  "requiresAuth": false
 }

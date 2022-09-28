@@ -33,12 +33,15 @@ router.post('/', async (req, res) => {
   const { firstName, lastName, email, password } = req.body;
 
   try {
+    let user = await User.findOne({ email });
+    if (user) return res.status(400).send('User already registered.');
+
     const roles = await Role.find();
     const role = roles.find((r) => r.name === userRolesString.regular);
     const salt = await bcrypt.genSalt(bycriptSaltRounds);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const user = new User({
+    user = new User({
       firstName,
       lastName,
       email,
@@ -47,8 +50,29 @@ router.post('/', async (req, res) => {
     });
 
     await user.save();
-    res.send(user);
+
+    const mappedRoles = user.roles.map((r) => {
+      const role = roles.find((role) => role._id.toString() === r.toString());
+      return role;
+    });
+
+    user.roles = mappedRoles;
+
+    res.send(
+      _.pick(user, [
+        '_id',
+        'firstName',
+        'lastName',
+        'email',
+        'roles',
+        'status',
+      ]),
+    );
   } catch (error) {
     res.status(500).send(error.message);
   }
 });
+
+router.put('/:id', async () => {});
+
+module.exports = router;

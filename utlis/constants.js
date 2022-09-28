@@ -1,7 +1,13 @@
-export const userRolesString = {
+const bycriptSaltRounds = 10;
+const jwtExpirationTime = '24h';
+const userRolesString = {
   admin: 'admin',
   contentCreator: 'contentCreator',
   regular: 'regular',
 };
 
-export const bycriptSaltRounds = 10;
+module.exports = {
+  bycriptSaltRounds,
+  jwtExpirationTime,
+  userRolesString,
+};
