@@ -63,6 +63,7 @@ userSchema.methods.generateAuthToken = function () {
       email: this.email,
       roles: this.roles,
       status: this.status,
+      avatarUrl: this.avatarUrl,
     },
     config.get('jwtPrivateKey'),
     { expiresIn: jwtExpirationTime },

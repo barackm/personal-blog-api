@@ -8,7 +8,7 @@ app.use(helmet());
 app.use(morgan('tiny'));
 app.use(express.json());
 
-require('./startup/logging')();
+// require('./startup/logging')();
 require('./startup/cors')(app);
 require('./startup/routes')(app);
 require('./startup/db')();
