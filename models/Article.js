@@ -8,11 +8,10 @@ const articleSchema = new mongoose.Schema({
     minlength: 5,
     maxlength: 255,
   },
-  //   userId: {
-  //     type: mongoose.Schema.Types.ObjectId,
-  //     ref: 'User',
-  //     required: true,
-  //   },
+  authorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: true,
+  },
   mainImageUrl: {
     type: String,
     required: true,

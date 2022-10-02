@@ -6,8 +6,11 @@ const userRolesString = {
   regular: 'regular',
 };
 
+const authorizationTokenString = 'authorization';
+
 module.exports = {
   bycriptSaltRounds,
   jwtExpirationTime,
   userRolesString,
+  authorizationTokenString,
 };

@@ -2,7 +2,8 @@ const mongoose = require('mongoose');
 const config = require('config');
 const jwt = require('jsonwebtoken');
 const Joi = require('joi');
-const { jwtExpirationTime } = require('../utlis/constants');
+const { jwtExpirationTime, userRolesString } = require('../utlis/constants');
+const { Role } = require('./Role');
 
 const userSchema = new mongoose.Schema({
   firstName: {
@@ -61,17 +62,26 @@ userSchema.methods.generateAuthToken = function () {
       firstName: this.firstName,
       lastName: this.lastName,
       email: this.email,
-      roles: this.roles,
-      status: this.status,
       avatarUrl: this.avatarUrl,
     },
+
     config.get('jwtPrivateKey'),
     { expiresIn: jwtExpirationTime },
   );
   return token;
 };
 
-const User = mongoose.model('User', userSchema);
+userSchema.methods.isAdmin = async function () {
+  const roles = await Role.find({ _id: { $in: this.roles } });
+  return roles.some((role) => role.name === userRolesString.admin);
+};
+
+userSchema.methods.isContentCreator = async function () {
+  const roles = await Role.find({ _id: { $in: this.roles } });
+  return roles.some((role) => role.name === userRolesString.contentCreator);
+};
+
+const User = mongoose.models.User || mongoose.model('User', userSchema);
 
 const validateUser = (user) => {
   const schema = Joi.object({

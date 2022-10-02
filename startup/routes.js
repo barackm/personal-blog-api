@@ -3,6 +3,7 @@ const home = require('../routes/home');
 const roles = require('../routes/roles');
 const users = require('../routes/users');
 const articles = require('../routes/articles');
+const auth = require('../routes/auth');
 
 const routes = (app) => {
   app.use('/', home);
@@ -11,6 +12,7 @@ const routes = (app) => {
   app.use('/api/roles', roles);
   app.use('/api/users', users);
   app.use('/api/articles', articles);
+  app.use('/api/auth', auth);
 };
 
 module.exports = routes;

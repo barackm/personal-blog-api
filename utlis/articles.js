@@ -6,4 +6,13 @@ const shouldArticleBePublished = (article) => {
   return false;
 };
 
-exports.shouldArticleBePublished = shouldArticleBePublished;
+const isUserAuthorOfArticle = (article, user) => {
+  if (article.authorId.toString() === user._id.toString()) return true;
+  if (user.isAdmin()) return true;
+  return false;
+};
+
+module.exports = {
+  shouldArticleBePublished,
+  isUserAuthorOfArticle,
+};
