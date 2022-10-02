@@ -1,4 +1,6 @@
 const express = require('express');
+const admin = require('../middlewares/admin');
+const auth = require('../middlewares/auth');
 const router = express.Router();
 const { Project, validate } = require('../models/Project');
 
@@ -20,7 +22,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', [auth, admin], async (req, res) => {
   try {
     const { error } = validate(req.body);
     if (error) return res.status(400).json({ error: error.details[0].message });
@@ -34,7 +36,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', [auth, admin], async (req, res) => {
   try {
     const { error } = validate(req.body);
     if (error) return res.status(400).json({ error: error.details[0].message });
@@ -49,7 +51,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', [auth, admin], async (req, res) => {
   try {
     const project = await Project.findByIdAndDelete(req.params.id).exec();
     res.status(200).json(project);
