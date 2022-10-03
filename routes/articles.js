@@ -42,7 +42,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/', [contentCreator], async (req, res) => {
+router.post('/', [auth, contentCreator], async (req, res) => {
   try {
     const { error } = validate(req.body);
     if (error) return res.status(400).send(error.details[0].message);
