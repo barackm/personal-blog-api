@@ -2,11 +2,13 @@ const express = require('express');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const config = require('config');
+const { publishScheduledArticles } = require('./jobs/articles');
 
 const app = express();
 app.use(helmet());
 app.use(morgan('tiny'));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // require('./startup/logging')();
 require('./startup/cors')(app);
@@ -19,4 +21,5 @@ const port = process.env.PORT || config.get('port');
 
 app.listen(port, () => {
   console.log(`App listening at http://localhost:${port}`);
+  publishScheduledArticles.start();
 });
