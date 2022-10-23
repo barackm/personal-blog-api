@@ -6,7 +6,7 @@ const userRolesString = {
   regular: 'regular',
 };
 
-const authorizationTokenString = 'authorization';
+const authorizationTokenString = 'Authorization';
 
 module.exports = {
   bycriptSaltRounds,

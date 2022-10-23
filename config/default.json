@@ -3,5 +3,6 @@
   "jwtPrivateKey": "defaultPrivateKey",
   "db": "mongodb://localhost/myPortfolio",
   "port": "3900",
-  "requiresAuth": false
+  "requiresAuth": false,
+  "corsOrigin": "http://localhost:3000"
 }

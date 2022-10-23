@@ -2,12 +2,18 @@ const express = require('express');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const config = require('config');
+const cors = require('cors');
 const { publishScheduledArticles } = require('./jobs/articles');
 
 const app = express();
 app.use(helmet());
 app.use(morgan('tiny'));
 app.use(express.json());
+app.use(
+  cors({
+    origin: config.get('corsOrigin'),
+  }),
+);
 app.use(express.urlencoded({ extended: true }));
 
 // require('./startup/logging')();
