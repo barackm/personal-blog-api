@@ -7,6 +7,7 @@ const userResponseProperties = [
   'status',
   'avatarUrl',
   'createdAt',
+  'roleObjects',
 ];
 
 module.exports = {

@@ -17,7 +17,17 @@ const { userResponseProperties } = require('../utlis/users');
 router.get('/', async (req, res) => {
   try {
     const users = await User.find().select(['-password', '-__v']).exec();
-    res.status(200).json(users);
+    const usersWithRoles = await Promise.all(
+      users.map(async (user) => {
+        const userRoles = await user.getRoles();
+        const userRolesNames = userRoles.map((role) => role.name);
+        return {
+          ...user._doc,
+          roleObjects: userRolesNames,
+        };
+      }),
+    );
+    res.status(200).json(usersWithRoles);
   } catch (error) {
     res.status(500).send(error.message);
   }
@@ -28,6 +38,8 @@ router.get('/:id', async (req, res) => {
     const user = await User.findById(req.params.id);
     if (!user)
       return res.status(404).send('The user with the given ID was not found.');
+    const userRoles = await user.getRoles();
+    user.roleObjects = userRoles;
     res.send(_.pick(user, userResponseProperties));
   } catch (error) {
     res.status(500).send(error.message);
@@ -65,6 +77,9 @@ router.post('/', async (req, res) => {
 
     user.roles = mappedRoles;
     const token = user.generateAuthToken();
+
+    const userRoles = await user.getRoles();
+    user.roleObjects = userRoles;
 
     res
       .header('x-auth-token', token)
@@ -116,7 +131,11 @@ router.put('/:id/roles', [auth, admin], async (req, res) => {
     const rolesIds = roles.map((r) => r._id);
     user.roles = rolesIds;
     const token = user.generateAuthToken();
+
     await user.save();
+
+    const userRoles = await user.getRoles();
+    user.roleObjects = userRoles;
     res
       .header(authorizationTokenString, token)
       .send(_.pick(user, userResponseProperties));
@@ -130,19 +149,9 @@ router.delete('/:id', [auth, admin], async (req, res) => {
     const user = await User.findByIdAndRemove(req.params.id);
     if (!user)
       return res.status(404).send('The user with the given ID was not found.');
+    const userRoles = await user.getRoles();
+    user.roleObjects = userRoles;
     res.send(_.pick(user, userResponseProperties));
-  } catch (error) {
-    res.status(500).send(error.message);
-  }
-});
-
-router.get('/me', auth, async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id).select('-password');
-    const token = user.generateAuthToken();
-    res
-      .header(authorizationTokenString, token)
-      .send(_.pick(user, userResponseProperties));
   } catch (error) {
     res.status(500).send(error.message);
   }
@@ -156,6 +165,8 @@ router.put('/:id/status', [auth, admin], async (req, res) => {
       return res.status(404).send('The user with the given ID was not found.');
     user.status = status;
     await user.save();
+    const userRoles = await user.getRoles();
+    user.roleObjects = userRoles;
     res.send(_.pick(user, userResponseProperties));
   } catch (error) {
     res.status(500).send(error.message);

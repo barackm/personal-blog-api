@@ -30,6 +30,10 @@ const projectSchema = new mongoose.Schema({
   tags: {
     type: [String],
   },
+  categoryId: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: true,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -47,6 +51,7 @@ const validateProject = (project) => {
     liveDemoUrl: Joi.string(),
     technologies: Joi.array().items(Joi.string()).required(),
     tags: Joi.array().items(Joi.string()),
+    categoryId: Joi.string().required(),
   });
 
   return schema.validate(project);

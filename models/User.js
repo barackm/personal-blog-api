@@ -76,6 +76,11 @@ userSchema.methods.isAdmin = async function () {
   return roles.some((role) => role.name === userRolesString.admin);
 };
 
+userSchema.methods.getRoles = async function () {
+  const roles = await Role.find({ _id: { $in: this.roles } }).exec();
+  return roles;
+};
+
 userSchema.methods.isContentCreator = async function () {
   const roles = await Role.find({ _id: { $in: this.roles } });
   return roles.some((role) => role.name === userRolesString.contentCreator);
