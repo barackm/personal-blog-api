@@ -13,6 +13,7 @@ const {
 const auth = require('../middlewares/auth');
 const admin = require('../middlewares/admin');
 const { userResponseProperties } = require('../utlis/users');
+const { sendEmailVerification } = require('../services/mail');
 
 router.get('/', async (req, res) => {
   try {
@@ -60,40 +61,33 @@ router.post('/', async (req, res) => {
     const salt = await bcrypt.genSalt(bycriptSaltRounds);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    const verificationToken = await bcrypt.hash(
+      email + password,
+      bycriptSaltRounds,
+    );
+
     user = new User({
       firstName,
       lastName,
       email,
       password: hashedPassword,
       roles: [role._id],
+      verificationToken,
+      isVerified: false,
+      avatarUrl:
+        'https://asset.cloudinary.com/barackm/21f9b5b94bbff1d12a5b6c3bb073824b',
     });
 
     await user.save();
 
-    const mappedRoles = user.roles.map((r) => {
-      const role = roles.find((role) => role._id.toString() === r.toString());
-      return role;
-    });
-
-    user.roles = mappedRoles;
     const token = user.generateAuthToken();
 
     const userRoles = await user.getRoles();
     user.roleObjects = userRoles;
-
+    await sendEmailVerification(user, verificationToken);
     res
-      .header('x-auth-token', token)
-      .send(
-        _.pick(user, [
-          '_id',
-          'firstName',
-          'lastName',
-          'email',
-          'roles',
-          'status',
-          'avatarUrl',
-        ]),
-      );
+      .header(authorizationTokenString, token)
+      .send({ user: _.pick(user, userResponseProperties), token });
   } catch (error) {
     res.status(500).send(error.message);
   }

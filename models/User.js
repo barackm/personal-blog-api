@@ -53,6 +53,19 @@ const userSchema = new mongoose.Schema({
     default: 'active',
     enum: ['active', 'inactive'],
   },
+  verificationToken: {
+    type: String,
+  },
+  resetPasswordToken: {
+    type: String,
+  },
+
+  resetPasswordExpires: {
+    type: Date,
+  },
+  isVerified: {
+    type: Boolean,
+  },
 });
 
 userSchema.methods.generateAuthToken = function () {
