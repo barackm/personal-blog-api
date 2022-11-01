@@ -21,7 +21,7 @@ transporter.use(
       extName: '.hbs',
       partialsDir: 'views/templates/',
       layoutsDir: 'views/templates/',
-      defaultLayout: 'emailVerification.hbs',
+      defaultLayout: '',
     },
     viewPath: 'views/templates/',
     extName: '.hbs',
@@ -43,7 +43,7 @@ const sendMail = async (message) => {
 const sendEmailVerification = async (user, token) => {
   const { email, firstName, lastName } = user;
   const message = {
-    from: `Barack M. <${MAIL.USER}>`,
+    from: 'Barack <' + MAIL.USER + '>',
     to: email,
     subject: 'Email Verification',
     template: 'emailVerification',
@@ -60,7 +60,7 @@ const sendEmailVerification = async (user, token) => {
 const sendResetPasswordEmail = async (user, token) => {
   const { email, firstName, lastName } = user;
   const message = {
-    from: `Barack M. <${MAIL.USER}>`,
+    from: 'Barack <' + MAIL.USER + '>',
     to: email,
     subject: 'Reset Password',
     template: 'resetPassword',
