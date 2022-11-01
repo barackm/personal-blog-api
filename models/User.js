@@ -76,6 +76,7 @@ userSchema.methods.generateAuthToken = function () {
       lastName: this.lastName,
       email: this.email,
       avatarUrl: this.avatarUrl,
+      isVerified: this.isVerified,
     },
 
     config.get('jwtPrivateKey'),

@@ -50,7 +50,7 @@ const sendEmailVerification = async (user, token) => {
     context: {
       firstName,
       lastName,
-      link: `${FRONTEND_URL}/verifyEmail/${token}`,
+      link: `${FRONTEND_URL}/auth/verifyEmail?token=${token}`,
     },
   };
 
@@ -67,7 +67,7 @@ const sendResetPasswordEmail = async (user, token) => {
     context: {
       firstName,
       lastName,
-      link: `${FRONTEND_URL}/resetPassword/${token}`,
+      link: `${FRONTEND_URL}/auth/resetPassword?token=${token}`,
     },
   };
 

@@ -47,7 +47,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/register', async (req, res) => {
   const { error } = validate(req.body);
   if (error) return res.status(400).send(error.details[0].message);
   const { firstName, lastName, email, password } = req.body;
@@ -75,7 +75,7 @@ router.post('/', async (req, res) => {
       verificationToken,
       isVerified: false,
       avatarUrl:
-        'https://asset.cloudinary.com/barackm/21f9b5b94bbff1d12a5b6c3bb073824b',
+        'https://res.cloudinary.com/barackm/image/upload/v1667256609/personal_portfolio/user_avatar.png',
     });
 
     await user.save();

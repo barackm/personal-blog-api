@@ -19,6 +19,10 @@ module.exports = async (req, res, next) => {
         .status(403)
         .send("Access denied. You don't have enough permissions.");
 
+    if (!user.isVerified) {
+      return res.status(401).send('Access denied. User is not verified.');
+    }
+
     next();
   } catch (ex) {
     res.status(400).send('Invalid token.');
