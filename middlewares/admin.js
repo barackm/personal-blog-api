@@ -8,7 +8,10 @@ module.exports = async (req, res, next) => {
   if (!token) return res.status(401).send('Access denied. No token provided.');
 
   try {
-    const decoded = jwt.verify(token, config.get('jwtPrivateKey'));
+    const decoded = jwt.verify(
+      token.replace('Bearer ', ''),
+      config.get('jwtPrivateKey'),
+    );
     const user = await User.findById(decoded._id).select('-password');
     req.user = user;
     if (!user.isVerified) {

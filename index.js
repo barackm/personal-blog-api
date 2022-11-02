@@ -8,22 +8,23 @@ const { publishScheduledArticles } = require('./jobs/articles');
 const app = express();
 app.use(helmet());
 app.use(morgan('tiny'));
-app.use(express.json());
 app.use(
   cors({
     origin: config.get('corsOrigin'),
   }),
 );
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
 require('dotenv').config();
-// require('./startup/logging')();
 require('./startup/cors')(app);
 require('./startup/routes')(app);
 require('./startup/db')();
+require('./startup/cloudinary');
 require('./startup/config')();
 require('./startup/validation')();
 require('./startup/mail')();
+// require('./startup/logging')();
 
 const port = process.env.PORT || config.get('port');
 

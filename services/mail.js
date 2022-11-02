@@ -29,7 +29,7 @@ transporter.use(
 );
 
 const sendMail = async (message) => {
-  transporter.sendMail(message, (err, info) => {
+  return transporter.sendMail(message, (err, info) => {
     if (err) {
       console.log('Error occurred. ' + err.message);
       return process.exit(1);

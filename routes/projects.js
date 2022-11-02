@@ -2,6 +2,9 @@ const express = require('express');
 const admin = require('../middlewares/admin');
 const auth = require('../middlewares/auth');
 const router = express.Router();
+const { uploadProjectImage } = require('../services/cloudinary');
+const multer = require('multer');
+const upload = multer();
 const { Project, validate } = require('../models/Project');
 const { ProjectCategory } = require('../models/ProjectCategory');
 
@@ -35,15 +38,28 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/', [auth, admin], async (req, res) => {
+router.post('/', [auth, admin, upload.single('imageUrl')], async (req, res) => {
   try {
+    req.body.tags = req.body.tags.split(',');
+    req.body.technologies = req.body.technologies.split(',');
+
     const { error } = validate(req.body);
-    if (error) return res.status(400).json({ error: error.details[0].message });
+    const image = req.file;
+    if (error) return res.status(400).json(error.details[0].message);
+    let uploadedImage = null;
     const category = await ProjectCategory.findById(req.body.categoryId).exec();
     if (!category)
       return res.status(400).json({ error: 'Invalid project category.' });
 
-    const project = new Project(req.body);
+    if (image) {
+      uploadedImage = await uploadProjectImage(image);
+    }
+
+    const project = new Project({
+      ...req.body,
+      imageUrl: uploadedImage ? uploadedImage.secure_url : req.body.imageUrl,
+    });
+
     await project.save();
     res.status(200).json({ ...project._doc, category: category });
   } catch (error) {
@@ -51,22 +67,40 @@ router.post('/', [auth, admin], async (req, res) => {
   }
 });
 
-router.put('/:id', [auth, admin], async (req, res) => {
-  try {
-    const { error } = validate(req.body);
-    if (error) return res.status(400).json({ error: error.details[0].message });
-    const category = await ProjectCategory.findById(req.body.categoryId).exec();
-    if (!category)
-      return res.status(400).json({ error: 'Invalid project category.' });
-    const project = await Project.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    }).exec();
+router.put(
+  '/:id',
+  [auth, admin, upload.single('imageUrl')],
+  async (req, res) => {
+    try {
+      req.body.tags = req.body.tags.split(',');
+      req.body.technologies = req.body.technologies.split(',');
 
-    res.status(200).json({ ...project._doc, category: category });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+      const { error } = validate(req.body);
+      const image = req.file;
+      if (error) return res.status(400).json(error.details[0].message);
+      let uploadedImage = null;
+      const category = await ProjectCategory.findById(
+        req.body.categoryId,
+      ).exec();
+      if (!category)
+        return res.status(400).json({ error: 'Invalid project category.' });
+
+      if (image) {
+        uploadedImage = await uploadProjectImage(image);
+      }
+
+      const project = await Project.findById(req.params.id).exec();
+      project.set({
+        ...req.body,
+        imageUrl: uploadedImage ? uploadedImage.secure_url : project.imageUrl,
+      });
+      await project.save();
+      res.status(200).json({ ...project._doc, category: category });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
 
 router.delete('/:id', [auth, admin], async (req, res) => {
   try {
