@@ -15,13 +15,13 @@ app.use(
 );
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+require('./startup/config')();
 
 require('dotenv').config();
 require('./startup/cors')(app);
 require('./startup/routes')(app);
 require('./startup/db')();
 require('./startup/cloudinary');
-require('./startup/config')();
 require('./startup/validation')();
 require('./startup/mail')();
 // require('./startup/logging')();

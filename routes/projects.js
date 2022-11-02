@@ -7,8 +7,9 @@ const multer = require('multer');
 const upload = multer();
 const { Project, validate } = require('../models/Project');
 const { ProjectCategory } = require('../models/ProjectCategory');
+const { formatError, errorTypes } = require('../utlis/errorHandler');
 
-router.get('/', async (req, res) => {
+router.get('/', async (_, res) => {
   try {
     const projects = await Project.find().exec();
     const projectsWithCategories = await Promise.all(
@@ -24,7 +25,7 @@ router.get('/', async (req, res) => {
     );
     res.status(200).json(projectsWithCategories);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json(formatError(error.message, errorTypes.serverError));
   }
 });
 
@@ -34,7 +35,7 @@ router.get('/:id', async (req, res) => {
     const category = await ProjectCategory.findById(project.categoryId).exec();
     res.status(200).json({ ...project._doc, category });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json(formatError(error.message, errorTypes.serverError));
   }
 });
 
@@ -45,11 +46,16 @@ router.post('/', [auth, admin, upload.single('imageUrl')], async (req, res) => {
 
     const { error } = validate(req.body);
     const image = req.file;
-    if (error) return res.status(400).json(error.details[0].message);
+    if (error)
+      return res
+        .status(400)
+        .json(formatError(error.details[0].message, errorTypes.validation));
     let uploadedImage = null;
     const category = await ProjectCategory.findById(req.body.categoryId).exec();
     if (!category)
-      return res.status(400).json({ error: 'Invalid project category.' });
+      return res
+        .status(400)
+        .json(formatError('Invalid project category.', errorTypes.validation));
 
     if (image) {
       uploadedImage = await uploadProjectImage(image);
@@ -63,7 +69,7 @@ router.post('/', [auth, admin, upload.single('imageUrl')], async (req, res) => {
     await project.save();
     res.status(200).json({ ...project._doc, category: category });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json(formatError(error.message, errorTypes.serverError));
   }
 });
 
@@ -77,13 +83,20 @@ router.put(
 
       const { error } = validate(req.body);
       const image = req.file;
-      if (error) return res.status(400).json(error.details[0].message);
+      if (error)
+        return res
+          .status(400)
+          .json(formatError(error.details[0].message, errorTypes.validation));
       let uploadedImage = null;
       const category = await ProjectCategory.findById(
         req.body.categoryId,
       ).exec();
       if (!category)
-        return res.status(400).json({ error: 'Invalid project category.' });
+        return res
+          .status(400)
+          .json(
+            formatError('Invalid project category.', errorTypes.validation),
+          );
 
       if (image) {
         uploadedImage = await uploadProjectImage(image);
@@ -97,7 +110,7 @@ router.put(
       await project.save();
       res.status(200).json({ ...project._doc, category: category });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json(formatError(error.message, errorTypes.serverError));
     }
   },
 );
@@ -108,7 +121,7 @@ router.delete('/:id', [auth, admin], async (req, res) => {
     const category = await ProjectCategory.findById(project.categoryId).exec();
     res.status(200).json({ ...project._doc, category: category });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json(formatError(error.message, errorTypes.serverError));
   }
 });
 

@@ -14,15 +14,21 @@ const {
   sendEmailVerification,
   sendResetPasswordEmail,
 } = require('../services/mail');
+const { formatError, errorTypes } = require('../utlis/errorHandler');
 
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).send('Invalid email or password.');
+    if (!user)
+      return res
+        .status(400)
+        .send(formatError('Invalid email or password.', errorTypes.validation));
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword)
-      return res.status(400).send('Invalid email or password.');
+      return res
+        .status(400)
+        .send(formatError('Invalid email or password.', errorTypes.validation));
     const token = user.generateAuthToken();
 
     const roles = await user.getRoles();
@@ -33,7 +39,7 @@ router.post('/login', async (req, res) => {
       token,
     });
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).send(formatError(error.message, errorTypes.serverError));
   }
 });
 
@@ -49,7 +55,7 @@ router.get('/me', auth, async (req, res) => {
       token,
     });
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).send(formatError(error.message, errorTypes.serverError));
   }
 });
 
@@ -57,7 +63,10 @@ router.post('/resend-verification-email', async (req, res) => {
   const { email } = req.body;
   try {
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).send('User not found.');
+    if (!user)
+      return res
+        .status(400)
+        .send(formatError('Invalid email.', errorTypes.notFound));
 
     if (user.isVerified) return res.status(400).send('User already verified.');
     const verificationToken = await bcrypt.hash(
@@ -69,7 +78,7 @@ router.post('/resend-verification-email', async (req, res) => {
     await sendEmailVerification(user, verificationToken);
     res.send('Verification email sent.');
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).send(formatError(error.message, errorTypes.serverError));
   }
 });
 
@@ -77,8 +86,14 @@ router.post('/verify-email', async (req, res) => {
   const { verificationToken } = req.body;
   try {
     const user = await User.findOne({ verificationToken });
-    if (!user) return res.status(400).send('Invalid verification token.');
-    if (user.isVerified) return res.status(400).send('User already verified.');
+    if (!user)
+      return res
+        .status(400)
+        .send(formatError('Invalid token.', errorTypes.notFound));
+    if (user.isVerified)
+      return res
+        .status(400)
+        .send(formatError('User already verified.', errorTypes.validation));
     user.isVerified = true;
     user.verificationToken = null;
     await user.save();
@@ -89,7 +104,7 @@ router.post('/verify-email', async (req, res) => {
       .header(authorizationTokenString, token)
       .send({ user: _.pick(user, userResponseProperties), token });
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).send(formatError(error.message, errorTypes.serverError));
   }
 });
 
@@ -97,7 +112,10 @@ router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
   try {
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).send('User not found.');
+    if (!user)
+      return res
+        .status(400)
+        .send(formatError('Invalid email.', errorTypes.notFound));
     const resetPasswordToken = await bcrypt.hash(
       email + user.password,
       bycriptSaltRounds,
@@ -108,7 +126,7 @@ router.post('/forgot-password', async (req, res) => {
     await sendResetPasswordEmail(user, resetPasswordToken);
     res.send('Reset password email sent.');
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).send(formatError(error.message, errorTypes.serverError));
   }
 });
 
@@ -116,9 +134,14 @@ router.post('/reset-password', async (req, res) => {
   const { resetPasswordToken, password } = req.body;
   try {
     const user = await User.findOne({ resetPasswordToken });
-    if (!user) return res.status(400).send('Invalid reset password token.');
+    if (!user)
+      return res
+        .status(400)
+        .send(formatError('Invalid token.', errorTypes.notFound));
     if (user.resetPasswordExpires < Date.now())
-      return res.status(400).send('Reset password token expired.');
+      return res
+        .status(400)
+        .send(formatError('Token expired.', errorTypes.validation));
     const hashedPassword = await bcrypt.hash(password, bycriptSaltRounds);
     user.password = hashedPassword;
     user.resetPasswordToken = null;
@@ -131,7 +154,7 @@ router.post('/reset-password', async (req, res) => {
       .header(authorizationTokenString, token)
       .send({ user: _.pick(user, userResponseProperties), token });
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).send(formatError(error.message, errorTypes.serverError));
   }
 });
 

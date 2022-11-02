@@ -1,14 +1,15 @@
 const jwt = require('jsonwebtoken');
-const config = require('config');
 const { User } = require('../models/user');
-const { authorizationTokenString } = require('../utlis/constants');
+const {
+  authorizationTokenString,
+  JWT_PRIVATE_KEY,
+} = require('../utlis/constants');
 
 module.exports = async (req, res, next) => {
   const token = req.header(authorizationTokenString);
   if (!token) return res.status(401).send('Access denied. No token provided.');
-
   try {
-    const decoded = jwt.verify(token, config.get('jwtPrivateKey'));
+    const decoded = jwt.verify(token, JWT_PRIVATE_KEY);
     const user = await User.findById(decoded._id).select('-password');
     req.user = user;
     const isAdmin = await user.isAdmin();

@@ -11,6 +11,8 @@ const publishScheduledArticles = cron.schedule('*/5 * * * *', async () => {
 
     articles.forEach(async (article) => {
       article.isPublished = true;
+      article.scheduledAt = null;
+      article.savedDraft = false;
       await article.save();
     });
   } catch (error) {

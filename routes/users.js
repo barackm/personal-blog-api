@@ -14,6 +14,7 @@ const auth = require('../middlewares/auth');
 const admin = require('../middlewares/admin');
 const { userResponseProperties } = require('../utlis/users');
 const { sendEmailVerification } = require('../services/mail');
+const { errorTypes, formatError } = require('../utlis/errorHandler');
 
 router.get('/', async (req, res) => {
   try {
@@ -30,7 +31,7 @@ router.get('/', async (req, res) => {
     );
     res.status(200).json(usersWithRoles);
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).json(formatError(error.message, errorTypes.serverError));
   }
 });
 
@@ -38,23 +39,33 @@ router.get('/:id', async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user)
-      return res.status(404).send('The user with the given ID was not found.');
+      return res
+        .status(404)
+        .send(formatError('User not found.', errorTypes.notFound));
     const userRoles = await user.getRoles();
     user.roleObjects = userRoles;
     res.send(_.pick(user, userResponseProperties));
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).send(formatError(error.message, errorTypes.serverError));
   }
 });
 
 router.post('/register', async (req, res) => {
   const { error } = validate(req.body);
-  if (error) return res.status(400).send(error.details[0].message);
+  if (error)
+    return res
+      .status(400)
+      .send(formatError(error.details[0].message, errorTypes.validation));
   const { firstName, lastName, email, password } = req.body;
 
   try {
     let user = await User.findOne({ email });
-    if (user) return res.status(400).send('User already registered.');
+    if (user)
+      return res
+        .status(400)
+        .send(
+          formatError('User already registered.', errorTypes.alreadyExists),
+        );
 
     const roles = await Role.find();
     const role = roles.find((r) => r.name === userRolesString.regular);
@@ -89,13 +100,16 @@ router.post('/register', async (req, res) => {
       .header(authorizationTokenString, token)
       .send({ user: _.pick(user, userResponseProperties), token });
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).send(formatError(error.message, errorTypes.serverError));
   }
 });
 
 router.put('/:id', async (req, res) => {
   const { error } = validate(req.body);
-  if (error) return res.status(400).send(error.details[0].message);
+  if (error)
+    return res
+      .status(400)
+      .send(formatError(error.details[0].message, errorTypes.validation));
 
   try {
     const user = await User.findByIdAndUpdate(
@@ -106,12 +120,16 @@ router.put('/:id', async (req, res) => {
       },
       { new: true },
     );
-    const token = user.generateAuthToken();
     if (!user)
-      return res.status(404).send('The user with the given ID was not found.');
+      return res
+        .status(404)
+        .send(formatError('User not found.', errorTypes.notFound));
+
+    const token = user.generateAuthToken();
+
     res.header(authorizationTokenString, token).send(user);
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).send(formatError(error.message, errorTypes.serverError));
   }
 });
 
@@ -120,7 +138,9 @@ router.put('/:id/roles', [auth, admin], async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user)
-      return res.status(404).send('The user with the given ID was not found.');
+      return res
+        .status(404)
+        .send(formatError('User not found.', errorTypes.notFound));
 
     const rolesIds = roles.map((r) => r._id);
     user.roles = rolesIds;
@@ -142,12 +162,14 @@ router.delete('/:id', [auth, admin], async (req, res) => {
   try {
     const user = await User.findByIdAndRemove(req.params.id);
     if (!user)
-      return res.status(404).send('The user with the given ID was not found.');
+      return res
+        .status(404)
+        .send(formatError('User not found.', errorTypes.notFound));
     const userRoles = await user.getRoles();
     user.roleObjects = userRoles;
     res.send(_.pick(user, userResponseProperties));
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).send(formatError(error.message, errorTypes.serverError));
   }
 });
 
@@ -156,14 +178,16 @@ router.put('/:id/status', [auth, admin], async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user)
-      return res.status(404).send('The user with the given ID was not found.');
+      return res
+        .status(404)
+        .send(formatError('User not found.', errorTypes.notFound));
     user.status = status;
     await user.save();
     const userRoles = await user.getRoles();
     user.roleObjects = userRoles;
     res.send(_.pick(user, userResponseProperties));
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).send(formatError(error.message, errorTypes.serverError));
   }
 });
 

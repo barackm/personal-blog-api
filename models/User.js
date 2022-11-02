@@ -1,8 +1,11 @@
 const mongoose = require('mongoose');
-const config = require('config');
 const jwt = require('jsonwebtoken');
 const Joi = require('joi');
-const { jwtExpirationTime, userRolesString } = require('../utlis/constants');
+const {
+  jwtExpirationTime,
+  userRolesString,
+  JWT_PRIVATE_KEY,
+} = require('../utlis/constants');
 const { Role } = require('./Role');
 
 const userSchema = new mongoose.Schema({
@@ -78,8 +81,7 @@ userSchema.methods.generateAuthToken = function () {
       avatarUrl: this.avatarUrl,
       isVerified: this.isVerified,
     },
-
-    config.get('jwtPrivateKey'),
+    JWT_PRIVATE_KEY,
     { expiresIn: jwtExpirationTime },
   );
   return token;
