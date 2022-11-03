@@ -1,8 +1,9 @@
 const { Server } = require('socket.io');
+const { FRONTEND_URL } = require('../utlis/constants');
 const createSocketServer = (server) => {
   const io = new Server(server, {
     cors: {
-      origin: '*',
+      origin: FRONTEND_URL,
       methods: ['GET', 'POST'],
     },
   });
