@@ -16,6 +16,24 @@ const createSlug = async (title) => {
   }
 };
 
+const autoSaveArticle = async (articleId, draft, userId) => {
+  try {
+    const article = await Article.findById(articleId)
+      .and({ authorId: userId })
+      .exec();
+    if (!article) {
+      return false;
+    }
+    article.draft = draft;
+    article.modifiedAt = Date.now();
+    await article.save();
+    return true;
+  } catch (error) {
+    console.log(error);
+  }
+};
+
 module.exports = {
   createSlug,
+  autoSaveArticle,
 };

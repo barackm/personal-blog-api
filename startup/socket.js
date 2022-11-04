@@ -1,4 +1,5 @@
 const { Server } = require('socket.io');
+const { autoSaveArticle } = require('../services/articles');
 const { FRONTEND_URL } = require('../utlis/constants');
 const createSocketServer = (server) => {
   const io = new Server(server, {
@@ -12,6 +13,11 @@ const createSocketServer = (server) => {
     console.log('socket connected');
     socket.on('disconnect', () => {
       console.log('desconnected');
+    });
+
+    socket.on('auto-save-article', async (data) => {
+      const { article, currentUser } = data;
+      await autoSaveArticle(article._id, article.draft, currentUser._id);
     });
   });
 
