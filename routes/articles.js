@@ -1,32 +1,16 @@
 const express = require('express');
-// const auth = require('../middlewares/auth');
 const contentCreator = require('../middlewares/contentCreator');
-// const multer = require('multer');
-// const upload = multer();
 
 const router = express.Router();
 
 const { Article } = require('../models/Article');
-// const { createSlug } = require('../services/articles');
-const {
-  // shouldArticleBePublished,
-  isUserAuthorOfArticle,
-} = require('../utlis/articles');
+const { isUserAuthorOfArticle } = require('../utlis/articles');
 const { formatError, errorTypes } = require('../utlis/errorHandler');
 const { User } = require('../models/User');
 const auth = require('../middlewares/auth');
 const { default: mongoose } = require('mongoose');
-// const { uploadArticleImage } = require('../services/cloudinary');
 
-// router.post(
-//   '/',
-//   [auth, contentCreator, upload.single('imageUrl')],
-//   async (req, res) => {
-
-//   },
-// );
-
-router.get('/', async (_, res) => {
+router.get('/', [auth], async (_, res) => {
   try {
     const articles = await Article.find().exec();
 
@@ -53,7 +37,7 @@ router.post('/new-article', [auth, contentCreator], async (req, res) => {
       content: '',
       modifiedAt: Date.now(),
       draft: '',
-      title: 'Untitled',
+      title: 'Draft: Untitled',
       authorId: user._id,
       slug: mongoose.Types.ObjectId().toString(),
     });
@@ -68,7 +52,7 @@ router.post('/new-article', [auth, contentCreator], async (req, res) => {
   }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', [auth], async (req, res) => {
   try {
     const article = await Article.findById(req.params.id).exec();
     if (!article)
