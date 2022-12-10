@@ -180,8 +180,13 @@ router.put('/admin/:id', [auth, admin], async (req, res) => {
         .status(404)
         .send(formatError('User not found.', errorTypes.notFound));
 
+    const regularRole = await Role.findOne({ name: userRolesString.regular });
+    const noRegularRole = !roles.find(
+      (r) => r.name === userRolesString.regular,
+    );
+
     const rolesIds = roles.map((r) => r._id);
-    user.roles = rolesIds;
+    user.roles = noRegularRole ? [regularRole._id, ...rolesIds] : rolesIds;
     user.firstName = firstName;
     user.lastName = lastName;
     user.email = email;
