@@ -27,7 +27,7 @@ router.get('/', [auth], async (req, res) => {
       .exec();
 
     const count = await Article.countDocuments();
-    const articlesWithOthers = await Promise.all(
+    const articlesWithAuthors = await Promise.all(
       articles.map(async (article) => {
         const user = await User.findById(article.authorId).exec();
         return {
@@ -37,7 +37,7 @@ router.get('/', [auth], async (req, res) => {
       }),
     );
     res.status(200).json({
-      articles: articlesWithOthers,
+      articles: articlesWithAuthors,
       total: count,
     });
   } catch (error) {

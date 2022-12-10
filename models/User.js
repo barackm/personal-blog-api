@@ -53,8 +53,8 @@ const userSchema = new mongoose.Schema({
   status: {
     type: String,
     required: true,
-    default: 'active',
-    enum: ['active', 'inactive'],
+    default: 'pending',
+    enum: ['active', 'inactive', 'pending'],
   },
   verificationToken: {
     type: String,
@@ -118,5 +118,28 @@ const validateUser = (user) => {
   return schema.validate(user);
 };
 
+const bulkEditValidate = (user) => {
+  const schema = Joi.object({
+    firstName: Joi.string().min(3).max(50).required(),
+    lastName: Joi.string().min(3).max(50).required(),
+    email: Joi.string().min(5).max(255).required().email(),
+    roles: Joi.array().items(Joi.object()),
+    status: Joi.string().valid('active', 'inactive', 'pending'),
+  });
+
+  return schema.validate(user);
+};
+
+const profileValidate = (user) => {
+  const schema = Joi.object({
+    firstName: Joi.string().min(3).max(50).required(),
+    lastName: Joi.string().min(3).max(50).required(),
+    avatarUrl: Joi.string(),
+  });
+
+  return schema.validate(user);
+};
 exports.User = User;
 exports.validate = validateUser;
+exports.bulkEditValidate = bulkEditValidate;
+exports.profileValidate = profileValidate;

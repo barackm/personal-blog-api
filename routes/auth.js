@@ -96,6 +96,7 @@ router.post('/verify-email', async (req, res) => {
         .send(formatError('User already verified.', errorTypes.validation));
     user.isVerified = true;
     user.verificationToken = null;
+    user.status = 'active';
     await user.save();
     const token = user.generateAuthToken();
     const userRoles = await user.getRoles();
