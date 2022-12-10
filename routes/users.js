@@ -93,7 +93,7 @@ router.post('/register', async (req, res) => {
       verificationToken,
       isVerified: false,
       avatarUrl:
-        'https://res.cloudinary.com/barackm/image/upload/v1667256609/personal_portfolio/user_avatar.png',
+        'https://res.cloudinary.com/barackm/image/upload/v1670682216/personal-portfolio/60111_rx4ftj.jpg',
     });
 
     await user.save();
