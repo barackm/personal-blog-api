@@ -134,6 +134,11 @@ const profileValidate = (user) => {
   const schema = Joi.object({
     firstName: Joi.string().min(3).max(50).required(),
     lastName: Joi.string().min(3).max(50).required(),
+    password: Joi.string().min(5).max(255),
+    oldPassword: Joi.string().min(5).max(255).when('password', {
+      is: Joi.exist(),
+      then: Joi.required(),
+    }),
     avatarUrl: Joi.string(),
   });
 

@@ -119,14 +119,9 @@ router.put('/:id', [auth], async (req, res) => {
       .send(formatError(error.details[0].message, errorTypes.validation));
 
   try {
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      {
-        firstName: req.body.firstName,
-        lastName: req.body.lastName,
-      },
-      { new: true },
-    );
+    const { password, oldPassword, firstName, lastName } = req.body;
+    const user = await User.findById(req.params.id);
+
     if (!user)
       return res
         .status(404)
@@ -144,9 +139,27 @@ router.put('/:id', [auth], async (req, res) => {
         .send(formatError('Forbidden', errorTypes.forbidden));
     }
 
-    const token = user.generateAuthToken();
+    if (password) {
+      const validPassword = await bcrypt.compare(oldPassword, user.password);
+      if (!validPassword)
+        return res
+          .status(400)
+          .send(formatError('Old Password is Invalid.', errorTypes.validation));
+      const salt = await bcrypt.genSalt(bycriptSaltRounds);
+      const hashedPassword = await bcrypt.hash(password, salt);
+      console.log('hashedPassword', hashedPassword, 'password', password);
+      user.password = hashedPassword;
+    }
 
-    res.header(authorizationTokenString, token).send(user);
+    user.firstName = firstName;
+    user.lastName = lastName;
+
+    const token = user.generateAuthToken();
+    await user.save();
+
+    res
+      .header(authorizationTokenString, token)
+      .send({ user: _.pick(user, userResponseProperties), token });
   } catch (error) {
     res.status(500).send(formatError(error.message, errorTypes.serverError));
   }
@@ -241,7 +254,6 @@ router.put('/:id/status', [auth, admin], async (req, res) => {
   }
 });
 
-// change profile picture
 router.put(
   '/:id/avatar',
   [auth, upload.single('avatarUrl')],
@@ -277,7 +289,10 @@ router.put(
 
       await user.save();
       const token = user.generateAuthToken();
-      res.header(authorizationTokenString, token).send(user);
+      res.header(authorizationTokenString, token).send({
+        user,
+        token,
+      });
     } catch (error) {
       res.status(500).send(formatError(error.message, errorTypes.serverError));
     }
