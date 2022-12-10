@@ -16,10 +16,14 @@ const { createSlug } = require('../services/articles');
 
 router.get('/', [auth], async (req, res) => {
   try {
+    const { user } = req;
     const { page, limit } = req.query;
-    const articles = await Article.find()
+    const articles = await Article.find({
+      authorId: user._id,
+    })
       .skip((page - 1) * limit)
       .limit(limit)
+      .sort({ modifiedAt: -1 })
       .exec();
 
     const count = await Article.countDocuments();
