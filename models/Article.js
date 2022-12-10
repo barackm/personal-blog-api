@@ -46,22 +46,19 @@ const articleSchema = new mongoose.Schema({
   draft: {
     type: String,
   },
+  publishedAt: {
+    type: Date,
+  },
 });
 
 const Article = mongoose.model('Article', articleSchema);
 
 const validateArticle = (article) => {
   const schema = Joi.object({
-    title: Joi.string().min(5).max(255),
-    authorId: Joi.string(),
+    title: Joi.string().min(5).max(255).required(),
     mainImageUrl: Joi.string(),
-    content: Joi.string().min(5),
     tags: Joi.array().items(Joi.string()),
-    createdAt: Joi.date(),
-    modifiedAt: Joi.date(),
-    scheduledAt: Joi.date(),
-    isPublished: Joi.boolean(),
-    draft: Joi.string().min(5),
+    draft: Joi.string().min(5).required(),
   });
 
   return schema.validate(article);

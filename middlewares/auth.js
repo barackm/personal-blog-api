@@ -7,7 +7,6 @@ const { formatError, errorTypes } = require('../utlis/errorHandler');
 
 module.exports = (req, res, next) => {
   const token = req.header(authorizationTokenString);
-  console.log(token, 'token-------------------');
   if (!token)
     return res
       .status(401)

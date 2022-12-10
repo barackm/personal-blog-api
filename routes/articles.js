@@ -1,19 +1,28 @@
 const express = require('express');
 const contentCreator = require('../middlewares/contentCreator');
+const { uploadArticleImage } = require('../services/cloudinary');
 
 const router = express.Router();
+const multer = require('multer');
+const upload = multer();
 
-const { Article } = require('../models/Article');
+const { Article, validate } = require('../models/Article');
 const { isUserAuthorOfArticle } = require('../utlis/articles');
 const { formatError, errorTypes } = require('../utlis/errorHandler');
 const { User } = require('../models/User');
 const auth = require('../middlewares/auth');
 const { default: mongoose } = require('mongoose');
+const { createSlug } = require('../services/articles');
 
-router.get('/', [auth], async (_, res) => {
+router.get('/', [auth], async (req, res) => {
   try {
-    const articles = await Article.find().exec();
+    const { page, limit } = req.query;
+    const articles = await Article.find()
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .exec();
 
+    const count = await Article.countDocuments();
     const articlesWithOthers = await Promise.all(
       articles.map(async (article) => {
         const user = await User.findById(article.authorId).exec();
@@ -23,7 +32,10 @@ router.get('/', [auth], async (_, res) => {
         };
       }),
     );
-    res.status(200).json(articlesWithOthers);
+    res.status(200).json({
+      articles: articlesWithOthers,
+      total: count,
+    });
   } catch (error) {
     res.status(500).json(formatError(error.message, errorTypes.serverError));
   }
@@ -83,6 +95,176 @@ router.delete('/:id', [auth, contentCreator], async (req, res) => {
 
     await Article.findByIdAndDelete(article._id).exec();
     res.status(200).json(article);
+  } catch (error) {
+    res.status(500).json(formatError(error.message, errorTypes.serverError));
+  }
+});
+
+router.put(
+  '/save/:id',
+  [auth, contentCreator, upload.single('mainImageUrl')],
+  async (req, res) => {
+    try {
+      const { errors } = validate(req.body);
+      if (errors) return res.status(400).send(errors.details[0].message);
+
+      let uploadedImage = null;
+      const currentUser = req.user;
+      const image = req.file;
+      const article = await Article.findById(req.params.id).exec();
+      if (!article)
+        res
+          .status(404)
+          .json(formatError('Article not found', errorTypes.notFound));
+      if (!isUserAuthorOfArticle(article, currentUser)) {
+        return res
+          .status(403)
+          .send(formatError('Forbidden', errorTypes.forbidden));
+      }
+
+      const { title, draft, tags } = req.body;
+      if (image) {
+        uploadedImage = await uploadArticleImage(image);
+      }
+
+      const slug = await createSlug(title);
+
+      const modifiedArticle = {
+        title,
+        draft,
+        slug,
+        tags: tags.split(','),
+        modifiedAt: Date.now(),
+        mainImageUrl: uploadedImage
+          ? uploadedImage.secure_url
+          : article.mainImageUrl,
+      };
+
+      const updatedArticle = await Article.findByIdAndUpdate(
+        article._id,
+        modifiedArticle,
+        { new: true },
+      ).exec();
+
+      res.status(200).json({ ...updatedArticle, author: currentUser });
+    } catch (error) {
+      res.status(500).json(formatError(error.message, errorTypes.serverError));
+    }
+  },
+);
+
+router.put('/publish/:id', [auth, contentCreator], async (req, res) => {
+  try {
+    const currentUser = req.user;
+    const article = await Article.findById(req.params.id).exec();
+    if (!article)
+      res
+        .status(404)
+        .json(formatError('Article not found', errorTypes.notFound));
+    if (!isUserAuthorOfArticle(article, currentUser)) {
+      return res
+        .status(403)
+        .send(formatError('Forbidden', errorTypes.forbidden));
+    }
+
+    if (article.draft === article.content && article.isPublished) {
+      return res
+        .status(400)
+        .send(formatError('Article already published', errorTypes.validation));
+    }
+
+    const modifiedArticle = {
+      content: article.draft,
+      publishedAt: Date.now(),
+      isPublished: true,
+      scheduledAt: null,
+    };
+
+    const updatedArticle = await Article.findByIdAndUpdate(
+      article._id,
+      modifiedArticle,
+      { new: true },
+    ).exec();
+
+    res.status(200).json({ ...updatedArticle, author: currentUser });
+  } catch (error) {
+    res.status(500).json(formatError(error.message, errorTypes.serverError));
+  }
+});
+
+router.put('/unpublish/:id', [auth, contentCreator], async (req, res) => {
+  try {
+    const currentUser = req.user;
+    const article = await Article.findById(req.params.id).exec();
+    if (!article)
+      res
+        .status(404)
+        .json(formatError('Article not found', errorTypes.notFound));
+    if (!isUserAuthorOfArticle(article, currentUser)) {
+      return res
+        .status(403)
+        .send(formatError('Forbidden', errorTypes.forbidden));
+    }
+
+    if (!article.isPublished) {
+      return res
+        .status(400)
+        .send(
+          formatError('Article already unpublished', errorTypes.validation),
+        );
+    }
+
+    const modifiedArticle = {
+      publishedAt: null,
+      isPublished: false,
+    };
+
+    const updatedArticle = await Article.findByIdAndUpdate(
+      article._id,
+      modifiedArticle,
+      { new: true },
+    ).exec();
+
+    res.status(200).json({ ...updatedArticle, author: currentUser });
+  } catch (error) {
+    res.status(500).json(formatError(error.message, errorTypes.serverError));
+  }
+});
+
+router.put('/schedule/:id', [auth, contentCreator], async (req, res) => {
+  try {
+    const currentUser = req.user;
+    const article = await Article.findById(req.params.id).exec();
+    if (!article)
+      res
+        .status(404)
+        .json(formatError('Article not found', errorTypes.notFound));
+    if (!isUserAuthorOfArticle(article, currentUser)) {
+      return res
+        .status(403)
+        .send(formatError('Forbidden', errorTypes.forbidden));
+    }
+
+    if (article.draft === article.content && article.isPublished) {
+      return res
+        .status(400)
+        .send(formatError('Article already published', errorTypes.validation));
+    }
+
+    const { scheduledAt } = req.body;
+    const modifiedArticle = {
+      content: article.draft,
+      scheduledAt,
+      isPublished: false,
+    };
+
+    const updatedArticle = await Article.findByIdAndUpdate(
+      article._id,
+      modifiedArticle,
+      { new: true },
+    ).exec();
+
+    res.status(200).json({ ...updatedArticle, author: currentUser });
   } catch (error) {
     res.status(500).json(formatError(error.message, errorTypes.serverError));
   }

@@ -17,7 +17,11 @@ const createSocketServer = (server) => {
 
     socket.on('auto-save-article', async (data) => {
       const { article, currentUser } = data;
-      await autoSaveArticle(article._id, article.draft, currentUser._id);
+      await autoSaveArticle(
+        article._id,
+        { draft: article.draft, title: article.title, tags: article.tags },
+        currentUser._id,
+      );
     });
   });
 
