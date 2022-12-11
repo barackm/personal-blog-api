@@ -43,7 +43,7 @@ const sendMail = async (message) => {
 const sendEmailVerification = async (user, token) => {
   const { email, firstName, lastName } = user;
   const message = {
-    from: 'Barack <' + MAIL.USER + '>',
+    from: 'Barack M. Admin <' + MAIL.USER + '>',
     to: email,
     subject: 'Email Verification',
     template: 'emailVerification',
@@ -60,7 +60,7 @@ const sendEmailVerification = async (user, token) => {
 const sendResetPasswordEmail = async (user, token) => {
   const { email, firstName, lastName } = user;
   const message = {
-    from: 'Barack <' + MAIL.USER + '>',
+    from: 'Barack M. Admin <' + MAIL.USER + '>',
     to: email,
     subject: 'Reset Password',
     template: 'resetPassword',
