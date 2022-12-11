@@ -9,7 +9,7 @@ const { Project, validate } = require('../models/Project');
 const { ProjectCategory } = require('../models/ProjectCategory');
 const { formatError, errorTypes } = require('../utlis/errorHandler');
 
-router.get('/', [auth, admin], async (_, res) => {
+router.get('/', async (_, res) => {
   try {
     const projects = await Project.find().exec();
     const projectsWithCategories = await Promise.all(

@@ -26,7 +26,7 @@ const MAIL = {
 const JWT_PRIVATE_KEY = process.env.JWT_PRIVATE_KEY;
 const FRONTEND_URL = process.env.FRONTEND_URL;
 const DB = {
-  URL: process.env.DB_URL,
+  URL: `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.agfbe0y.mongodb.net/${process.env.DB_NAME}?retryWrites=true&w=majority`,
 };
 
 module.exports = {
