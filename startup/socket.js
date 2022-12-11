@@ -1,10 +1,9 @@
 const { Server } = require('socket.io');
 const { autoSaveArticle } = require('../services/articles');
-const { FRONTEND_URL } = require('../utlis/constants');
 const createSocketServer = (server) => {
   const io = new Server(server, {
     cors: {
-      origin: FRONTEND_URL,
+      origin: '*',
       methods: ['GET', 'POST'],
     },
   });
