@@ -93,6 +93,20 @@ router.get('/:id', [auth], async (req, res) => {
   }
 });
 
+router.get('/slug/:slug', async (req, res) => {
+  try {
+    const article = await Article.findOne({ slug: req.params.slug }).exec();
+    if (!article)
+      res
+        .status(404)
+        .json(formatError('Article not found', errorTypes.notFound));
+    const user = await User.findById(article.authorId).exec();
+    res.status(200).json({ ...article._doc, author: user });
+  } catch (error) {
+    res.status(500).json(formatError(error.message, errorTypes.serverError));
+  }
+});
+
 router.delete('/:id', [auth, contentCreator], async (req, res) => {
   try {
     const currentUser = req.user;
