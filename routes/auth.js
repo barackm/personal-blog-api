@@ -35,7 +35,7 @@ router.post('/login', async (req, res) => {
     user.roleObjects = roles;
     const articlesCount = await user.getUserArticles().length;
     const projectsCount = await Project.countDocuments();
-    user.articlesCount = articlesCount.length;
+    user.articlesCount = articlesCount && articlesCount.length;
     user.projectsCount = projectsCount;
     res.header(authorizationTokenString, token).send({
       user: _.pick(user, userResponseProperties),
@@ -55,7 +55,7 @@ router.get('/me', auth, async (req, res) => {
     user.roleObjects = roles;
     const articlesCount = await user.getUserArticles();
     const projectsCount = await Project.countDocuments();
-    user.articlesCount = articlesCount.length;
+    user.articlesCount = articlesCount && articlesCount.length;
     user.projectsCount = projectsCount;
     res.header(authorizationTokenString, token).send({
       user: _.pick(user, userResponseProperties),
@@ -110,7 +110,7 @@ router.post('/verify-email', async (req, res) => {
     user.roleObjects = userRoles;
     const articlesCount = await user.getUserArticles().length;
     const projectsCount = await Project.countDocuments();
-    user.articlesCount = articlesCount.length;
+    user.articlesCount = articlesCount && articlesCount.length;
     user.projectsCount = projectsCount;
     res
       .header(authorizationTokenString, token)
@@ -165,7 +165,7 @@ router.post('/reset-password', async (req, res) => {
     user.roleObjects = userRoles;
     const articlesCount = await user.getUserArticles().length;
     const projectsCount = await Project.countDocuments();
-    user.articlesCount = articlesCount.length;
+    user.articlesCount = articlesCount && articlesCount.length;
     user.projectsCount = projectsCount;
     res
       .header(authorizationTokenString, token)
