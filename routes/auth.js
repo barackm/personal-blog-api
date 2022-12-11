@@ -37,13 +37,11 @@ router.post('/login', async (req, res) => {
     const projectsCount = await Project.countDocuments();
     user.articlesCount = articlesCount.length;
     user.projectsCount = projectsCount;
-    console.log('user', user);
     res.header(authorizationTokenString, token).send({
       user: _.pick(user, userResponseProperties),
       token,
     });
   } catch (error) {
-    console.log(error);
     res.status(500).send(formatError(error.message, errorTypes.serverError));
   }
 });
@@ -59,14 +57,12 @@ router.get('/me', auth, async (req, res) => {
     const projectsCount = await Project.countDocuments();
     user.articlesCount = articlesCount.length;
     user.projectsCount = projectsCount;
-    console.log('articlesCount', articlesCount);
     res.header(authorizationTokenString, token).send({
       user: _.pick(user, userResponseProperties),
       token,
     });
   } catch (error) {
     res.status(500).send(formatError(error.message, errorTypes.serverError));
-    console.log(error);
   }
 });
 
