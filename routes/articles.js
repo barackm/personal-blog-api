@@ -230,7 +230,13 @@ router.put('/publish/:id', [auth, contentCreator], async (req, res) => {
         .send(formatError('Article already published', errorTypes.validation));
     }
 
-    const newSlug = createSlug;
+    if (!article.title) {
+      return res
+        .status(400)
+        .send(formatError('Title is required', errorTypes.validation));
+    }
+
+    const newSlug = createSlug(article.title);
     const slug = article.slug ? article.slug : newSlug;
 
     const modifiedArticle = {
