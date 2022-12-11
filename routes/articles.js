@@ -236,7 +236,7 @@ router.put('/publish/:id', [auth, contentCreator], async (req, res) => {
         .send(formatError('Title is required', errorTypes.validation));
     }
 
-    const newSlug = createSlug(article.title);
+    const newSlug = await createSlug(article.title);
     const slug = article.slug ? article.slug : newSlug;
 
     const modifiedArticle = {
