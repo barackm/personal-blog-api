@@ -105,7 +105,7 @@ userSchema.methods.isContentCreator = async function () {
 
 userSchema.methods.getUserArticles = async function () {
   const articles = await Article.find({ authorId: this._id }).exec();
-  return articles;
+  return articles || [];
 };
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);
