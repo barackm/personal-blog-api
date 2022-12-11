@@ -13,7 +13,17 @@ const { User } = require('../models/User');
 const auth = require('../middlewares/auth');
 const { default: mongoose } = require('mongoose');
 const { createSlug } = require('../services/articles');
-
+const blogAuthorFieldsToSelect = [
+  '-password',
+  '-__v',
+  '-roles',
+  '-status',
+  '-verificationToken',
+  '-isVerified',
+  '-createdAt',
+  '-resetPasswordExpires',
+  '-resetPasswordToken',
+];
 router.get('/', [auth], async (req, res) => {
   try {
     const { user } = req;
@@ -55,7 +65,7 @@ router.get('/blog', async (req, res) => {
     const articlesWithAuthors = await Promise.all(
       articles.map(async (article) => {
         const user = await User.findById(article.authorId)
-          .select(['-password', '-__v'])
+          .select(blogAuthorFieldsToSelect)
           .exec();
         return {
           ...article._doc,
@@ -119,7 +129,9 @@ router.get('/slug/:slug', async (req, res) => {
         .status(403)
         .send(formatError('Forbidden', errorTypes.forbidden));
     }
-    const user = await User.findById(article.authorId).exec();
+    const user = await User.findById(article.authorId)
+      .select(blogAuthorFieldsToSelect)
+      .exec();
     res.status(200).json({ ...article._doc, author: user });
   } catch (error) {
     res.status(500).json(formatError(error.message, errorTypes.serverError));
