@@ -114,6 +114,11 @@ router.get('/slug/:slug', async (req, res) => {
       res
         .status(404)
         .json(formatError('Article not found', errorTypes.notFound));
+    if (!article.isPublished) {
+      return res
+        .status(403)
+        .send(formatError('Forbidden', errorTypes.forbidden));
+    }
     const user = await User.findById(article.authorId).exec();
     res.status(200).json({ ...article._doc, author: user });
   } catch (error) {
