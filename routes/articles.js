@@ -8,11 +8,11 @@ const upload = multer();
 
 const { Article, validate } = require('../models/Article');
 const { isUserAuthorOfArticle } = require('../utlis/articles');
+const { createSlug } = require('../services/articles');
 const { formatError, errorTypes } = require('../utlis/errorHandler');
 const { User } = require('../models/User');
 const auth = require('../middlewares/auth');
 const { default: mongoose } = require('mongoose');
-const { createSlug } = require('../services/articles');
 const blogAuthorFieldsToSelect = [
   '-password',
   '-__v',
@@ -187,12 +187,9 @@ router.put(
         uploadedImage = await uploadArticleImage(image);
       }
 
-      const slug = await createSlug(title);
-
       const modifiedArticle = {
         title,
         draft,
-        slug,
         tags: tags.split(','),
         modifiedAt: Date.now(),
         mainImageUrl: uploadedImage
@@ -233,11 +230,15 @@ router.put('/publish/:id', [auth, contentCreator], async (req, res) => {
         .send(formatError('Article already published', errorTypes.validation));
     }
 
+    const newSlug = createSlug;
+    const slug = article.slug ? article.slug : newSlug;
+
     const modifiedArticle = {
       content: article.draft,
       publishedAt: Date.now(),
       isPublished: true,
       scheduledAt: null,
+      slug,
     };
 
     const updatedArticle = await Article.findByIdAndUpdate(

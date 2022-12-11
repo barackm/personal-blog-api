@@ -1,24 +1,10 @@
 const { Article } = require('../models/Article');
+const mongoose = require('mongoose');
 
 const createSlug = async (title) => {
-  try {
-    const slug = title.toLowerCase().split(' ').join('-');
-    const article = await Article.findOne(
-      { slug: new RegExp(`^${slug}(-[0-9]*)?$`) },
-      'slug',
-      { sort: { slug: -1 } },
-    ).exec();
-    if (!article) {
-      return slug;
-    }
-    const lastSlug = article.slug.split('-').pop();
-    if (isNaN(lastSlug)) {
-      return `${slug}-1`;
-    }
-    return `${slug.slice(0, -lastSlug.length)}${parseInt(lastSlug, 10) + 1}`;
-  } catch (error) {
-    throw new Error(error);
-  }
+  const slug = title.toLowerCase().split(' ').join('-');
+  const id = mongoose.Types.ObjectId();
+  return `${slug}-${id}`;
 };
 
 const autoSaveArticle = async (articleId, { draft, title, tags }, userId) => {
