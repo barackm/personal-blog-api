@@ -14,10 +14,10 @@ const auth = require('../middlewares/auth');
 const { default: mongoose } = require('mongoose');
 const { createSlug } = require('../services/articles');
 
-router.get('/', async (req, res) => {
+router.get('/', [auth], async (req, res) => {
   try {
     const { user } = req;
-    const { page, limit, fromBlog } = req.query;
+    const { page, limit } = req.query;
     const articles = await Article.find({
       authorId: user._id,
     })
@@ -37,20 +37,34 @@ router.get('/', async (req, res) => {
       }),
     );
 
-    if (fromBlog === 'true') {
-      const publishedArticles = articlesWithAuthors.filter(
-        (article) => article.isPublished,
-      );
-      return res.status(200).json({
-        articles: publishedArticles,
-        total: publishedArticles.length,
-      });
-    }
-
     res.status(200).json({
       articles: articlesWithAuthors,
       total: count,
     });
+  } catch (error) {
+    res.status(500).json(formatError(error.message, errorTypes.serverError));
+  }
+});
+
+router.get('/blog', async (req, res) => {
+  try {
+    const articles = await Article.find({ isPublished: true })
+      .sort({ modifiedAt: -1 })
+      .exec();
+
+    const articlesWithAuthors = await Promise.all(
+      articles.map(async (article) => {
+        const user = await User.findById(article.authorId)
+          .select(['-password', '-__v'])
+          .exec();
+        return {
+          ...article._doc,
+          author: user,
+        };
+      }),
+    );
+
+    res.status(200).json(articlesWithAuthors);
   } catch (error) {
     res.status(500).json(formatError(error.message, errorTypes.serverError));
   }
