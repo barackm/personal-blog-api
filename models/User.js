@@ -7,6 +7,7 @@ const {
   JWT_PRIVATE_KEY,
 } = require('../utlis/constants');
 const { Role } = require('./Role');
+const { Article } = require('./Article');
 
 const userSchema = new mongoose.Schema({
   firstName: {
@@ -100,6 +101,11 @@ userSchema.methods.getRoles = async function () {
 userSchema.methods.isContentCreator = async function () {
   const roles = await Role.find({ _id: { $in: this.roles } });
   return roles.some((role) => role.name === userRolesString.contentCreator);
+};
+
+userSchema.methods.getUserArticles = async function () {
+  const articles = await Article.find({ authorId: this._id }).exec();
+  return articles;
 };
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);

@@ -15,6 +15,7 @@ const {
   sendResetPasswordEmail,
 } = require('../services/mail');
 const { formatError, errorTypes } = require('../utlis/errorHandler');
+const { Project } = require('../models/Project');
 
 router.post('/login', async (req, res) => {
   try {
@@ -29,16 +30,20 @@ router.post('/login', async (req, res) => {
       return res
         .status(400)
         .send(formatError('Invalid email or password.', errorTypes.validation));
-    const token = user.generateAuthToken();
-
     const roles = await user.getRoles();
+    const token = user.generateAuthToken();
     user.roleObjects = roles;
-
+    const articlesCount = await user.getUserArticles().length;
+    const projectsCount = await Project.countDocuments();
+    user.articlesCount = articlesCount.length;
+    user.projectsCount = projectsCount;
+    console.log('user', user);
     res.header(authorizationTokenString, token).send({
       user: _.pick(user, userResponseProperties),
       token,
     });
   } catch (error) {
+    console.log(error);
     res.status(500).send(formatError(error.message, errorTypes.serverError));
   }
 });
@@ -50,12 +55,18 @@ router.get('/me', auth, async (req, res) => {
 
     const roles = await user.getRoles();
     user.roleObjects = roles;
+    const articlesCount = await user.getUserArticles();
+    const projectsCount = await Project.countDocuments();
+    user.articlesCount = articlesCount.length;
+    user.projectsCount = projectsCount;
+    console.log('articlesCount', articlesCount);
     res.header(authorizationTokenString, token).send({
       user: _.pick(user, userResponseProperties),
       token,
     });
   } catch (error) {
     res.status(500).send(formatError(error.message, errorTypes.serverError));
+    console.log(error);
   }
 });
 
@@ -101,6 +112,10 @@ router.post('/verify-email', async (req, res) => {
     const token = user.generateAuthToken();
     const userRoles = await user.getRoles();
     user.roleObjects = userRoles;
+    const articlesCount = await user.getUserArticles().length;
+    const projectsCount = await Project.countDocuments();
+    user.articlesCount = articlesCount.length;
+    user.projectsCount = projectsCount;
     res
       .header(authorizationTokenString, token)
       .send({ user: _.pick(user, userResponseProperties), token });
@@ -147,10 +162,15 @@ router.post('/reset-password', async (req, res) => {
     user.password = hashedPassword;
     user.resetPasswordToken = null;
     user.resetPasswordExpires = null;
+
     await user.save();
     const token = user.generateAuthToken();
     const userRoles = await user.getRoles();
     user.roleObjects = userRoles;
+    const articlesCount = await user.getUserArticles().length;
+    const projectsCount = await Project.countDocuments();
+    user.articlesCount = articlesCount.length;
+    user.projectsCount = projectsCount;
     res
       .header(authorizationTokenString, token)
       .send({ user: _.pick(user, userResponseProperties), token });

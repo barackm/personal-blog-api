@@ -9,6 +9,8 @@ const userResponseProperties = [
   'createdAt',
   'roleObjects',
   'isVerified',
+  'articlesCount',
+  'projectsCount',
 ];
 
 module.exports = {
