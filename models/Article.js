@@ -4,29 +4,27 @@ const Joi = require('joi');
 const articleSchema = new mongoose.Schema({
   title: {
     type: String,
-    required: true,
-    minlength: 5,
+    min: 5,
     maxlength: 255,
+    required: true,
   },
+
   authorId: {
     type: mongoose.Schema.Types.ObjectId,
     required: true,
   },
+
   mainImageUrl: {
     type: String,
-    required: true,
   },
+
   slug: {
     type: String,
-    required: true,
-    minlength: 5,
     maxlength: 255,
     unique: true,
   },
   content: {
     type: String,
-    required: true,
-    minlength: 5,
   },
   tags: {
     type: [String],
@@ -45,9 +43,11 @@ const articleSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
-  savedDraft: {
-    type: Boolean,
-    default: false,
+  draft: {
+    type: String,
+  },
+  publishedAt: {
+    type: Date,
   },
 });
 
@@ -56,13 +56,9 @@ const Article = mongoose.model('Article', articleSchema);
 const validateArticle = (article) => {
   const schema = Joi.object({
     title: Joi.string().min(5).max(255).required(),
-    mainImageUrl: Joi.string().required(),
-    content: Joi.string().min(5).required(),
+    mainImageUrl: Joi.string(),
     tags: Joi.array().items(Joi.string()),
-    createdAt: Joi.date(),
-    modifiedAt: Joi.date(),
-    scheduledAt: Joi.date(),
-    savedDraft: Joi.boolean(),
+    draft: Joi.string().min(5).required(),
   });
 
   return schema.validate(article);

@@ -1,8 +1,11 @@
 const mongoose = require('mongoose');
-const config = require('config');
 const jwt = require('jsonwebtoken');
 const Joi = require('joi');
-const { jwtExpirationTime, userRolesString } = require('../utlis/constants');
+const {
+  jwtExpirationTime,
+  userRolesString,
+  JWT_PRIVATE_KEY,
+} = require('../utlis/constants');
 const { Role } = require('./Role');
 
 const userSchema = new mongoose.Schema({
@@ -50,8 +53,21 @@ const userSchema = new mongoose.Schema({
   status: {
     type: String,
     required: true,
-    default: 'active',
-    enum: ['active', 'inactive'],
+    default: 'pending',
+    enum: ['active', 'inactive', 'pending'],
+  },
+  verificationToken: {
+    type: String,
+  },
+  resetPasswordToken: {
+    type: String,
+  },
+
+  resetPasswordExpires: {
+    type: Date,
+  },
+  isVerified: {
+    type: Boolean,
   },
 });
 
@@ -63,9 +79,9 @@ userSchema.methods.generateAuthToken = function () {
       lastName: this.lastName,
       email: this.email,
       avatarUrl: this.avatarUrl,
+      isVerified: this.isVerified,
     },
-
-    config.get('jwtPrivateKey'),
+    JWT_PRIVATE_KEY,
     { expiresIn: jwtExpirationTime },
   );
   return token;
@@ -102,5 +118,33 @@ const validateUser = (user) => {
   return schema.validate(user);
 };
 
+const bulkEditValidate = (user) => {
+  const schema = Joi.object({
+    firstName: Joi.string().min(3).max(50).required(),
+    lastName: Joi.string().min(3).max(50).required(),
+    email: Joi.string().min(5).max(255).required().email(),
+    roles: Joi.array().items(Joi.object()),
+    status: Joi.string().valid('active', 'inactive', 'pending'),
+  });
+
+  return schema.validate(user);
+};
+
+const profileValidate = (user) => {
+  const schema = Joi.object({
+    firstName: Joi.string().min(3).max(50).required(),
+    lastName: Joi.string().min(3).max(50).required(),
+    password: Joi.string().min(5).max(255),
+    oldPassword: Joi.string().min(5).max(255).when('password', {
+      is: Joi.exist(),
+      then: Joi.required(),
+    }),
+    avatarUrl: Joi.string(),
+  });
+
+  return schema.validate(user);
+};
 exports.User = User;
 exports.validate = validateUser;
+exports.bulkEditValidate = bulkEditValidate;
+exports.profileValidate = profileValidate;

@@ -1,202 +1,276 @@
 const express = require('express');
-const auth = require('../middlewares/auth');
 const contentCreator = require('../middlewares/contentCreator');
+const { uploadArticleImage } = require('../services/cloudinary');
+
 const router = express.Router();
+const multer = require('multer');
+const upload = multer();
 
 const { Article, validate } = require('../models/Article');
+const { isUserAuthorOfArticle } = require('../utlis/articles');
+const { formatError, errorTypes } = require('../utlis/errorHandler');
+const { User } = require('../models/User');
+const auth = require('../middlewares/auth');
+const { default: mongoose } = require('mongoose');
 const { createSlug } = require('../services/articles');
-const {
-  shouldArticleBePublished,
-  isUserAuthorOfArticle,
-} = require('../utlis/articles');
 
-router.get('/', async (req, res) => {
-  const { page, limit, sort, order } = req.query;
+router.get('/', [auth], async (req, res) => {
   try {
-    const articles = await Article.find()
-      .sort({ [sort]: order })
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit))
-      .exec();
-    res.status(200).json(articles);
-  } catch (error) {
-    res.status(500).send(error.message);
-  }
-});
-
-router.get('/:slug', async (req, res) => {
-  try {
-    const article = await Article.findOne({ slug: req.params.slug }).exec();
-    res.status(200).json(article);
-  } catch (error) {
-    res.status(500).send(error.message);
-  }
-});
-
-router.get('/:id', async (req, res) => {
-  try {
-    const article = await Article.findById(req.params.id).exec();
-    res.status(200).json(article);
-  } catch (error) {
-    res.status(500).send(error.message);
-  }
-});
-
-router.post('/', [auth, contentCreator], async (req, res) => {
-  try {
-    const { error } = validate(req.body);
-    if (error) return res.status(400).send(error.details[0].message);
-
-    const { title, mainImageUrl, content, tags, scheduledAt, savedDraft } =
-      req.body;
     const { user } = req;
-    const slug = await createSlug(title);
-    if (!slug) return res.status(400).send('Title already exists');
+    const { page, limit } = req.query;
+    const articles = await Article.find({
+      authorId: user._id,
+    })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .sort({ modifiedAt: -1 })
+      .exec();
+
+    const count = await Article.countDocuments();
+    const articlesWithAuthors = await Promise.all(
+      articles.map(async (article) => {
+        const user = await User.findById(article.authorId).exec();
+        return {
+          ...article._doc,
+          author: user,
+        };
+      }),
+    );
+    res.status(200).json({
+      articles: articlesWithAuthors,
+      total: count,
+    });
+  } catch (error) {
+    res.status(500).json(formatError(error.message, errorTypes.serverError));
+  }
+});
+
+router.post('/new-article', [auth, contentCreator], async (req, res) => {
+  try {
+    const user = req.user;
 
     const article = new Article({
-      title,
-      mainImageUrl,
-      slug,
-      content,
-      tags,
+      content: '',
+      modifiedAt: Date.now(),
+      draft: '',
+      title: 'Draft: Untitled',
       authorId: user._id,
-      createdAt: new Date(),
-      modifiedAt: new Date(),
-      scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
-      isPublished: shouldArticleBePublished({ scheduledAt, savedDraft }),
-      savedDraft: savedDraft ? savedDraft : false,
+      slug: mongoose.Types.ObjectId().toString(),
     });
 
     await article.save();
-    res.status(201).json(article);
+    res.send({
+      ...article._doc,
+      isNewArticle: true,
+    });
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).json(formatError(error.message, errorTypes.serverError));
   }
 });
 
-router.put('/:id', [auth, contentCreator], async (req, res) => {
+router.get('/:id', [auth], async (req, res) => {
   try {
-    const { error } = validate(req.body);
-    if (error) return res.status(400).send(error.details[0].message);
-    const { title, mainImageUrl, content, tags, scheduledAt, savedDraft } =
-      req.body;
-    const { user } = req;
     const article = await Article.findById(req.params.id).exec();
-
-    if (!article) return res.status(404).send('Article not found');
-    if (!isUserAuthorOfArticle(req.user, article))
-      return res.status(403).send('You are not the author of this article');
-
-    if (article.title !== title) {
-      const slug = await createSlug(title);
-      if (!slug) return res.status(400).send('Title already exists');
-      article.slug = slug;
-    }
-
-    if (article.authorId.toString() !== user._id.toString() && !user.isAdmin)
-      return res.status(403).send('You are not the author of this article');
-
-    if (scheduledAt && new Date(scheduledAt) < new Date())
-      return res.status(400).send('Scheduled date must be in the future');
-
-    article.title = title;
-    article.mainImageUrl = mainImageUrl;
-    article.content = content;
-    article.tags = tags;
-    article.modifiedAt = new Date();
-    article.scheduledAt = scheduledAt ? new Date(scheduledAt) : null;
-    article.isPublished = shouldArticleBePublished({ scheduledAt, savedDraft });
-    article.savedDraft = savedDraft;
-
-    await article.save();
-    res.status(200).json(article);
+    if (!article)
+      res
+        .status(404)
+        .json(formatError('Article not found', errorTypes.notFound));
+    const user = await User.findById(article.authorId).exec();
+    res.status(200).json({ ...article._doc, author: user });
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).json(formatError(error.message, errorTypes.serverError));
   }
 });
 
 router.delete('/:id', [auth, contentCreator], async (req, res) => {
   try {
-    const article = await Article.findByIdAndDelete(req.params.id).exec();
+    const currentUser = req.user;
+    const article = await Article.findById(req.params.id).exec();
 
-    if (!article) return res.status(404).send('Article not found');
-    if (!isUserAuthorOfArticle(req.user, article))
-      return res.status(403).send('You are not the author of this article');
+    if (!article)
+      res
+        .status(404)
+        .json(formatError('Article not found', errorTypes.notFound));
+    if (!isUserAuthorOfArticle(article, currentUser)) {
+      return res
+        .status(403)
+        .send(formatError('Forbidden', errorTypes.forbidden));
+    }
 
+    await Article.findByIdAndDelete(article._id).exec();
     res.status(200).json(article);
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).json(formatError(error.message, errorTypes.serverError));
   }
 });
 
+router.put(
+  '/save/:id',
+  [auth, contentCreator, upload.single('mainImageUrl')],
+  async (req, res) => {
+    try {
+      const { errors } = validate(req.body);
+      if (errors) return res.status(400).send(errors.details[0].message);
+
+      let uploadedImage = null;
+      const currentUser = req.user;
+      const image = req.file;
+      const article = await Article.findById(req.params.id).exec();
+      if (!article)
+        res
+          .status(404)
+          .json(formatError('Article not found', errorTypes.notFound));
+      if (!isUserAuthorOfArticle(article, currentUser)) {
+        return res
+          .status(403)
+          .send(formatError('Forbidden', errorTypes.forbidden));
+      }
+
+      const { title, draft, tags } = req.body;
+      if (image) {
+        uploadedImage = await uploadArticleImage(image);
+      }
+
+      const slug = await createSlug(title);
+
+      const modifiedArticle = {
+        title,
+        draft,
+        slug,
+        tags: tags.split(','),
+        modifiedAt: Date.now(),
+        mainImageUrl: uploadedImage
+          ? uploadedImage.secure_url
+          : article.mainImageUrl,
+      };
+
+      const updatedArticle = await Article.findByIdAndUpdate(
+        article._id,
+        modifiedArticle,
+        { new: true },
+      ).exec();
+
+      res.status(200).json({ ...updatedArticle, author: currentUser });
+    } catch (error) {
+      res.status(500).json(formatError(error.message, errorTypes.serverError));
+    }
+  },
+);
+
 router.put('/publish/:id', [auth, contentCreator], async (req, res) => {
   try {
+    const currentUser = req.user;
     const article = await Article.findById(req.params.id).exec();
+    if (!article)
+      res
+        .status(404)
+        .json(formatError('Article not found', errorTypes.notFound));
+    if (!isUserAuthorOfArticle(article, currentUser)) {
+      return res
+        .status(403)
+        .send(formatError('Forbidden', errorTypes.forbidden));
+    }
 
-    if (!article) return res.status(404).send('Article not found');
-    if (!isUserAuthorOfArticle(req.user, article))
-      return res.status(403).send('You are not the author of this article');
+    if (article.draft === article.content && article.isPublished) {
+      return res
+        .status(400)
+        .send(formatError('Article already published', errorTypes.validation));
+    }
 
-    article.isPublished = true;
-    article.savedDraft = false;
-    await article.save();
-    res.status(200).json(article);
+    const modifiedArticle = {
+      content: article.draft,
+      publishedAt: Date.now(),
+      isPublished: true,
+      scheduledAt: null,
+    };
+
+    const updatedArticle = await Article.findByIdAndUpdate(
+      article._id,
+      modifiedArticle,
+      { new: true },
+    ).exec();
+
+    res.status(200).json({ ...updatedArticle, author: currentUser });
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).json(formatError(error.message, errorTypes.serverError));
   }
 });
 
 router.put('/unpublish/:id', [auth, contentCreator], async (req, res) => {
   try {
+    const currentUser = req.user;
     const article = await Article.findById(req.params.id).exec();
+    if (!article)
+      res
+        .status(404)
+        .json(formatError('Article not found', errorTypes.notFound));
+    if (!isUserAuthorOfArticle(article, currentUser)) {
+      return res
+        .status(403)
+        .send(formatError('Forbidden', errorTypes.forbidden));
+    }
 
-    if (!article) return res.status(404).send('Article not found');
-    if (!isUserAuthorOfArticle(req.user, article))
-      return res.status(403).send('You are not the author of this article');
+    if (!article.isPublished) {
+      return res
+        .status(400)
+        .send(
+          formatError('Article already unpublished', errorTypes.validation),
+        );
+    }
 
-    article.isPublished = false;
-    article.savedDraft = true;
-    await article.save();
-    res.status(200).json(article);
+    const modifiedArticle = {
+      publishedAt: null,
+      isPublished: false,
+    };
+
+    const updatedArticle = await Article.findByIdAndUpdate(
+      article._id,
+      modifiedArticle,
+      { new: true },
+    ).exec();
+
+    res.status(200).json({ ...updatedArticle, author: currentUser });
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).json(formatError(error.message, errorTypes.serverError));
   }
 });
 
-router.put('/save-draft/:id', [auth, contentCreator], async (req, res) => {
+router.put('/schedule/:id', [auth, contentCreator], async (req, res) => {
   try {
+    const currentUser = req.user;
     const article = await Article.findById(req.params.id).exec();
-    if (!article) return res.status(404).send('Article not found');
-    if (!isUserAuthorOfArticle(req.user, article))
-      return res.status(403).send('You are not the author of this article');
+    if (!article)
+      res
+        .status(404)
+        .json(formatError('Article not found', errorTypes.notFound));
+    if (!isUserAuthorOfArticle(article, currentUser)) {
+      return res
+        .status(403)
+        .send(formatError('Forbidden', errorTypes.forbidden));
+    }
 
-    article.savedDraft = true;
-    article.isPublished = false;
-    await article.save();
-    res.status(200).json(article);
-  } catch (error) {
-    res.status(500).send(error.message);
-  }
-});
+    if (article.draft === article.content && article.isPublished) {
+      return res
+        .status(400)
+        .send(formatError('Article already published', errorTypes.validation));
+    }
 
-router.put('/reschedule/:id', [auth, contentCreator], async (req, res) => {
-  try {
     const { scheduledAt } = req.body;
-    if (!scheduledAt || new Date(scheduledAt) < new Date())
-      return res.status(400).send('Scheduled date must be in the future');
-    const article = await Article.findById(req.params.id).exec();
+    const modifiedArticle = {
+      content: article.draft,
+      scheduledAt,
+      isPublished: false,
+    };
 
-    if (!article) return res.status(404).send('Article not found');
-    if (!isUserAuthorOfArticle(req.user, article))
-      return res.status(403).send('You are not the author of this article');
+    const updatedArticle = await Article.findByIdAndUpdate(
+      article._id,
+      modifiedArticle,
+      { new: true },
+    ).exec();
 
-    article.scheduledAt = new Date(req.body.scheduledAt);
-    article.isPublished = false;
-    article.savedDraft = true;
-    await article.save();
-    res.status(200).json(article);
+    res.status(200).json({ ...updatedArticle, author: currentUser });
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).json(formatError(error.message, errorTypes.serverError));
   }
 });
 

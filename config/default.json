@@ -1,8 +1,30 @@
 {
   "name": "My portfolio API development",
-  "jwtPrivateKey": "defaultPrivateKey",
-  "db": "mongodb://localhost/myPortfolio",
-  "port": "3900",
-  "requiresAuth": false,
-  "corsOrigin": "http://localhost:3000"
+  "jwtPrivateKey": "",
+  "db": {
+    "host": "",
+    "port": "",
+    "name": ""
+  },
+  "dbFullUrl": "",
+  "port": "",
+  "corsOrigin": "",
+  "infoEmailId": "",
+  "infoEmailPassword": "",
+  "frontendUrl": "",
+  "cloudinary": {
+    "cloudName": "",
+    "apiKey": "",
+    "apiSecret": "",
+    "uploadPreset": ""
+  },
+  "mail": {
+    "host": "",
+    "port": "",
+    "service": "",
+    "auth": {
+      "user": "",
+      "pass": ""
+    }
+  }
 }

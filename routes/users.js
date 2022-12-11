@@ -1,9 +1,16 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const upload = multer();
 const bcrypt = require('bcrypt');
 const _ = require('lodash');
 
-const { User, validate } = require('../models/User');
+const {
+  User,
+  validate,
+  bulkEditValidate,
+  profileValidate,
+} = require('../models/User');
 const { Role } = require('../models/Role');
 const {
   userRolesString,
@@ -13,52 +20,69 @@ const {
 const auth = require('../middlewares/auth');
 const admin = require('../middlewares/admin');
 const { userResponseProperties } = require('../utlis/users');
+const { sendEmailVerification } = require('../services/mail');
+const { errorTypes, formatError } = require('../utlis/errorHandler');
+const { uploadProfileImage } = require('../services/cloudinary');
 
-router.get('/', async (req, res) => {
+router.get('/', [auth, admin], async (req, res) => {
   try {
     const users = await User.find().select(['-password', '-__v']).exec();
     const usersWithRoles = await Promise.all(
       users.map(async (user) => {
         const userRoles = await user.getRoles();
-        const userRolesNames = userRoles.map((role) => role.name);
         return {
           ...user._doc,
-          roleObjects: userRolesNames,
+          roleObjects: userRoles,
         };
       }),
     );
     res.status(200).json(usersWithRoles);
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).json(formatError(error.message, errorTypes.serverError));
   }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', [auth], async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user)
-      return res.status(404).send('The user with the given ID was not found.');
+      return res
+        .status(404)
+        .send(formatError('User not found.', errorTypes.notFound));
     const userRoles = await user.getRoles();
     user.roleObjects = userRoles;
     res.send(_.pick(user, userResponseProperties));
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).send(formatError(error.message, errorTypes.serverError));
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/register', async (req, res) => {
   const { error } = validate(req.body);
-  if (error) return res.status(400).send(error.details[0].message);
+  if (error)
+    return res
+      .status(400)
+      .send(formatError(error.details[0].message, errorTypes.validation));
   const { firstName, lastName, email, password } = req.body;
 
   try {
     let user = await User.findOne({ email });
-    if (user) return res.status(400).send('User already registered.');
+    if (user)
+      return res
+        .status(400)
+        .send(
+          formatError('User already registered.', errorTypes.alreadyExists),
+        );
 
     const roles = await Role.find();
     const role = roles.find((r) => r.name === userRolesString.regular);
     const salt = await bcrypt.genSalt(bycriptSaltRounds);
     const hashedPassword = await bcrypt.hash(password, salt);
+
+    const verificationToken = await bcrypt.hash(
+      email + password,
+      bycriptSaltRounds,
+    );
 
     user = new User({
       firstName,
@@ -66,58 +90,114 @@ router.post('/', async (req, res) => {
       email,
       password: hashedPassword,
       roles: [role._id],
+      verificationToken,
+      isVerified: false,
+      avatarUrl:
+        'https://res.cloudinary.com/barackm/image/upload/v1670682216/personal-portfolio/60111_rx4ftj.jpg',
     });
 
     await user.save();
 
-    const mappedRoles = user.roles.map((r) => {
-      const role = roles.find((role) => role._id.toString() === r.toString());
-      return role;
-    });
-
-    user.roles = mappedRoles;
     const token = user.generateAuthToken();
 
     const userRoles = await user.getRoles();
     user.roleObjects = userRoles;
-
+    await sendEmailVerification(user, verificationToken);
     res
-      .header('x-auth-token', token)
-      .send(
-        _.pick(user, [
-          '_id',
-          'firstName',
-          'lastName',
-          'email',
-          'roles',
-          'status',
-          'avatarUrl',
-        ]),
-      );
+      .header(authorizationTokenString, token)
+      .send({ user: _.pick(user, userResponseProperties), token });
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).send(formatError(error.message, errorTypes.serverError));
   }
 });
 
-router.put('/:id', async (req, res) => {
-  const { error } = validate(req.body);
-  if (error) return res.status(400).send(error.details[0].message);
+router.put('/:id', [auth], async (req, res) => {
+  const { error } = profileValidate(req.body);
+  if (error)
+    return res
+      .status(400)
+      .send(formatError(error.details[0].message, errorTypes.validation));
 
   try {
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      {
-        firstName: req.body.firstName,
-        lastName: req.body.lastName,
-      },
-      { new: true },
-    );
-    const token = user.generateAuthToken();
+    const { password, oldPassword, firstName, lastName } = req.body;
+    const user = await User.findById(req.params.id);
+
     if (!user)
-      return res.status(404).send('The user with the given ID was not found.');
-    res.header(authorizationTokenString, token).send(user);
+      return res
+        .status(404)
+        .send(formatError('User not found.', errorTypes.notFound));
+
+    if (user._id.toString() !== req.user._id.toString()) {
+      return res
+        .status(403)
+        .send(formatError('Forbidden', errorTypes.forbidden));
+    }
+
+    if (!user.isVerified) {
+      return res
+        .status(403)
+        .send(formatError('Forbidden', errorTypes.forbidden));
+    }
+
+    if (password) {
+      const validPassword = await bcrypt.compare(oldPassword, user.password);
+      if (!validPassword)
+        return res
+          .status(400)
+          .send(formatError('Old Password is Invalid.', errorTypes.validation));
+      const salt = await bcrypt.genSalt(bycriptSaltRounds);
+      const hashedPassword = await bcrypt.hash(password, salt);
+      console.log('hashedPassword', hashedPassword, 'password', password);
+      user.password = hashedPassword;
+    }
+
+    user.firstName = firstName;
+    user.lastName = lastName;
+
+    const token = user.generateAuthToken();
+    await user.save();
+
+    res
+      .header(authorizationTokenString, token)
+      .send({ user: _.pick(user, userResponseProperties), token });
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).send(formatError(error.message, errorTypes.serverError));
+  }
+});
+
+router.put('/admin/:id', [auth, admin], async (req, res) => {
+  const { error } = bulkEditValidate(req.body);
+  if (error)
+    return res
+      .status(400)
+      .send(formatError(error.details[0].message, errorTypes.validation));
+
+  try {
+    const { firstName, lastName, email, roles, status } = req.body;
+    const user = await User.findById(req.params.id);
+    if (!user)
+      return res
+        .status(404)
+        .send(formatError('User not found.', errorTypes.notFound));
+
+    const regularRole = await Role.findOne({ name: userRolesString.regular });
+    const noRegularRole = !roles.find(
+      (r) => r.name === userRolesString.regular,
+    );
+
+    const rolesIds = roles.map((r) => r._id);
+    user.roles = noRegularRole ? [regularRole._id, ...rolesIds] : rolesIds;
+    user.firstName = firstName;
+    user.lastName = lastName;
+    user.email = email;
+    user.status = status;
+    await user.save();
+
+    const userRoles = await user.getRoles();
+    user.roleObjects = userRoles;
+    res.send(_.pick(user, userResponseProperties));
+  } catch (error) {
+    res.status(500).send(formatError(error.message, errorTypes.serverError));
   }
 });
 
@@ -126,7 +206,9 @@ router.put('/:id/roles', [auth, admin], async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user)
-      return res.status(404).send('The user with the given ID was not found.');
+      return res
+        .status(404)
+        .send(formatError('User not found.', errorTypes.notFound));
 
     const rolesIds = roles.map((r) => r._id);
     user.roles = rolesIds;
@@ -148,12 +230,14 @@ router.delete('/:id', [auth, admin], async (req, res) => {
   try {
     const user = await User.findByIdAndRemove(req.params.id);
     if (!user)
-      return res.status(404).send('The user with the given ID was not found.');
+      return res
+        .status(404)
+        .send(formatError('User not found.', errorTypes.notFound));
     const userRoles = await user.getRoles();
     user.roleObjects = userRoles;
     res.send(_.pick(user, userResponseProperties));
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).send(formatError(error.message, errorTypes.serverError));
   }
 });
 
@@ -162,15 +246,62 @@ router.put('/:id/status', [auth, admin], async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user)
-      return res.status(404).send('The user with the given ID was not found.');
+      return res
+        .status(404)
+        .send(formatError('User not found.', errorTypes.notFound));
     user.status = status;
     await user.save();
     const userRoles = await user.getRoles();
     user.roleObjects = userRoles;
     res.send(_.pick(user, userResponseProperties));
   } catch (error) {
-    res.status(500).send(error.message);
+    res.status(500).send(formatError(error.message, errorTypes.serverError));
   }
 });
+
+router.put(
+  '/:id/avatar',
+  [auth, upload.single('avatarUrl')],
+  async (req, res) => {
+    try {
+      const user = await User.findById(req.params.id);
+      const image = req.file;
+      let uploadedImage = null;
+
+      if (!user)
+        return res
+          .status(404)
+          .send(formatError('User not found.', errorTypes.notFound));
+
+      if (user._id.toString() !== req.user._id.toString()) {
+        return res
+          .status(403)
+          .send(formatError('Forbidden', errorTypes.forbidden));
+      }
+
+      if (!user.isVerified) {
+        return res
+          .status(403)
+          .send(formatError('Forbidden', errorTypes.forbidden));
+      }
+
+      if (image) {
+        uploadedImage = await uploadProfileImage(image);
+      }
+      user.avatarUrl = uploadedImage
+        ? uploadedImage.secure_url
+        : user.avatarUrl;
+
+      await user.save();
+      const token = user.generateAuthToken();
+      res.header(authorizationTokenString, token).send({
+        user,
+        token,
+      });
+    } catch (error) {
+      res.status(500).send(formatError(error.message, errorTypes.serverError));
+    }
+  },
+);
 
 module.exports = router;
